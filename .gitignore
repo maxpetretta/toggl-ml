@@ -1,6 +1,7 @@
 # Project files
 .vscode/
-.key
+*.key
+*.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
