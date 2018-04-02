@@ -29,7 +29,6 @@ def categorize(header, file):
             else:
                 categories.setdefault(key, set(['Unknown']))
                 categories[key].add(value)
-
     return categories
 
 
@@ -46,7 +45,7 @@ def split(data, size_train, size_test, size_validate):
     validate = data[split_train + split_test:]
 
     print('Successfully split data')
-    return [train, test, validate]
+    return (train, test, validate)
 
 
 # Create .csv file from set of entries
