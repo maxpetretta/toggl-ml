@@ -30,7 +30,7 @@ def write_csv(file, payload, pages):
 
     # Data header
     writer.writerow(['project', 'description', 'tags', 'start', 'end',
-                     'updated', 'duration'])
+                     'updated', 'duration', 'modified'])
 
     # Data body
     for i in range(1, pages + 1):
@@ -46,9 +46,15 @@ def write_csv(file, payload, pages):
 
         # Write current 50 entries to .csv file
         for entry in data:
+
+            # Determine if the entry was manually modified
+            modified = False
+            if entry['updated'] > entry['end']:
+                modified = True
+            
             writer.writerow([entry['project'], entry['description'],
                 entry['tags'][0] if entry['tags'] else 'None', entry['start'],
-                entry['end'], entry['updated'], entry['dur']])
+                entry['end'], entry['updated'], entry['dur'], modified])
 
 
 # Get all time entries between passed dates from web API
