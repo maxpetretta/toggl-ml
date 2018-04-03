@@ -1,6 +1,7 @@
 # Apply Naive-Bayes classifier to entries in passed data set
 import os
 import csv
+import copy
 from preprocess import preprocess
 
 
@@ -15,7 +16,6 @@ def compute_alpha(data):
     alpha_1 = 0
 
     for row in data:
-        print(row['modified'])
         if row['modified'] == 'True':
             alpha_1 += 1
         else:
@@ -24,8 +24,22 @@ def compute_alpha(data):
 
 
 # Count occurances of a feature when an entry is modified
-def compute_beta(data, categories):
+def compute_beta(data, key, item):
+    beta = {}
+    total = 0
+    modified = 0
     
+    for row in data:
+        if row[key] == item:
+            total += 1
+            if row['modified'] == 'True':
+                modified += 1
+    beta['True'] = modified
+    beta['False'] = total - modified
+    beta['Total'] = total
+
+    print(key, item, beta)
+    return beta
 
 
 # Examine time entries, building Bayesian model
@@ -44,9 +58,12 @@ def bayes(file_name, categories):
     # Compute overall probability of an entry being modified, termed as theta
     theta = alpha_1 / (alpha_0 + alpha_1)
     
-    # Build feature lookup probability table, termed as beta
-    beta = compute_beta(data, categories)
-
+    # Build feature probability lookup table, termed as beta
+    beta = copy.deepcopy(categories)
+    for key, value in categories.items():
+        for item in value:
+            beta[key][item] = compute_beta(data, key, item)
+    print(beta)
 
 
 

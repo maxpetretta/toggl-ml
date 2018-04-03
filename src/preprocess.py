@@ -27,8 +27,8 @@ def categorize(header, file):
             if key not in ['project', 'description', 'tags']:
                 break
             else:
-                categories.setdefault(key, set(['Unknown']))
-                categories[key].add(value)
+                categories.setdefault(key, {'Unknown': None})
+                categories[key][value] = None
     return categories
 
 

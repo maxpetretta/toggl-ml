@@ -48,9 +48,9 @@ def write_csv(file, payload, pages):
         for entry in data:
 
             # Determine if the entry was manually modified
-            modified = False
+            modified = 'False'
             if entry['updated'] > entry['end']:
-                modified = True
+                modified = 'True'
             
             writer.writerow([entry['project'], entry['description'],
                 entry['tags'][0] if entry['tags'] else 'None', entry['start'],
