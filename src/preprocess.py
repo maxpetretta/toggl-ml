@@ -17,19 +17,19 @@ def verify(size_train, size_test, size_validate):
         return False
 
 
-# Find all unique values for each category field
-def categorize(header, file):
+# Find all unique values for each feature field
+def find_features(header, file):
     reader = csv.DictReader(file)
-    categories = {}
+    features = {}
     
     for row in reader:
         for key, value in row.items():
             if key not in ['project', 'description', 'tags']:
                 break
             else:
-                categories.setdefault(key, {'Unknown': None})
-                categories[key][value] = None
-    return categories
+                features.setdefault(key, {'Unknown': None})
+                features[key][value] = None          
+    return features
 
 
 # Divide data into three sets based on passed split percentages
@@ -43,8 +43,6 @@ def split(data, size_train, size_test, size_validate):
     train = data[:split_train]
     test = data[split_train:split_train + split_test]
     validate = data[split_train + split_test:]
-
-    print('Successfully split data')
     return (train, test, validate)
 
 
@@ -57,6 +55,7 @@ def create_file(header, data, file):
 
 # Prepare data for learning model
 def preprocess(size_train, size_test, size_validate):
+    print('PREPROCESS:')
 
     # Verify set sizes add to 1
     if not verify(size_train, size_test, size_validate):
@@ -69,9 +68,9 @@ def preprocess(size_train, size_test, size_validate):
         header = next(reader)
         data = list(reader)
     
-        # Save lists of category values
+        # Save lists of feature classification values
         file.seek(0)
-        categories = categorize(header, file)
+        features = find_features(header, file)
 
     # Randomize time entries and split into three separate files
     random.shuffle(data)
@@ -84,10 +83,10 @@ def preprocess(size_train, size_test, size_validate):
         create_file(header, test, test_file)
         create_file(header, validate, validate_file)
 
-    print(f"Categories: Projects ({len(categories['project'])}), ",
-          f"Descriptions ({len(categories['description'])}), ",
-          f"Tags ({len(categories['tags'])})")
-    return categories
+    print(f"Features: Projects ({len(features['project'])}),",
+          f"Descriptions ({len(features['description'])}),",
+          f"Tags ({len(features['tags'])})\n")
+    return features
 
 
 # DEBUG

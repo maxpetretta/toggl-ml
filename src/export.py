@@ -59,6 +59,7 @@ def write_csv(file, payload, pages):
 
 # Get all time entries between passed dates from web API
 def export(since, until):
+    print('EXPORT:')
     global api_token
 
     # Open key files for API access
@@ -83,8 +84,8 @@ def export(since, until):
     # Collect all records in .csv format
     with open(os.path.join(data_path, 'data.csv'), 'w') as file:
         write_csv(file, payload, pages)
-    
-    print('Finished exporting data')
+
+    print('Finished exporting data\n')
 
 
 # DEBUG
