@@ -1,4 +1,4 @@
-# Apply Naive-Bayes classifier to entries in passed data set
+# Apply live Naive-Bayes classifier to entries in passed data set
 import os
 import csv
 import copy
@@ -10,6 +10,7 @@ from preprocess import preprocess
 # Global variables
 project_path = os.getcwd()
 data_path = os.path.join(project_path, 'data/')
+feature_list = ['project', 'description', 'tags']
 
 # Convert data .csv file to list of dictionaries structure
 def open_csv(file):
@@ -20,124 +21,97 @@ def open_csv(file):
     return data
 
 
-# Find number of entries that were manually updated
-def compute_alpha(data):
-    alpha_0 = 0
-    alpha_1 = 0
-
-    for row in data:
-        if row['modified'] == 'True':
-            alpha_1 += 1
-        else:
-            alpha_0 += 1
-    return (alpha_0, alpha_1)
-
-
-# Count occurances of a feature when an entry is modified
-def compute_beta(data, key, item):
+# Creates inital empty list of feature values
+def setup_beta():
     beta = {}
-    total = 0
-    modified = 0
     
-    for row in data:
-        if row[key] == item:
-            total += 1
-            if row['modified'] == 'True':
-                modified += 1
-    beta['True'] = modified
-    beta['False'] = total - modified
-    beta['Total'] = (total if total > 0 else 1) # TODO
+    for feature in feature_list:
+        beta.setdefault(feature, {'Unknown': {'True': 0, 'False': 0,
+                                  'Total': 0}})
     return beta
 
 
+# Count new entry of feature information
+def update_beta(beta, entry):
+    for key, value in entry.items():
+        if key not in feature_list:
+            break
+        elif value not in beta.values():
+
+            # Update Unknown values
+            beta[key]['Unknown'][entry['modified']] += 1
+            beta[key]['Unknown']['Total'] += 1
+            # TODO
+            beta[key].setdefault(value, {'True': 1, 'False': 1, 'Total': 1})
+            
+        # Update new values
+        beta[key][value][entry['modified']] += 1
+        beta[key][value]['Total'] += 1
+    return beta
+
+
+# Find number of entries that were manually updated
+def compute_alpha(beta):
+    alpha = [0, 0]
+
+    for feature, categories in beta.items():
+        for category in categories:
+            alpha[0] += beta[feature][category]['False']
+            alpha[1] += beta[feature][category]['True']
+    return alpha
+
+
+# Compute sum of logarithmic beta probabilities for the entry's feature category
+def sum_log_ratios(beta, entry):
+    log_sum = 0.0
+
+    for feature in feature_list:
+        log_sum += math.log(beta[feature][entry[feature]]['True'] /
+                            beta[feature][entry[feature]]['False'])
+    return log_sum
+
+
+# Color the larger of two percentages
+def color_results(percents, modified):
+    results = ['', '', '']
+    percent_0 = str(percents[0]) + '% False'
+    percent_1 = str(percents[1]) + '% True'
+
+    if modified == 'False':
+        results[2] = colored(modified, 'red')
+    else:
+        results[2] = colored(modified, 'green')
+
+    if percents[0] > percents[1]:
+        results[0] = colored(percent_0, 'red')
+        results[1] = colored(percent_1, 'white')
+    else:
+        results[0] = colored(percent_0, 'white')
+        results[1] = colored(percent_1, 'green')
+    return results
+
+
 # Determine probability of an entry being manually updated
-def compute_probability(theta, beta, data, lines):
-    print('Output format is...\nEntry: <Project>, <Description>, <Tag>',
-          '- (<Modified>)\n\tProbability: <##.#>% True, <##.#>% False\n')
+def compute_probability(beta, theta, output, entry):
+    
+    # Find logarithmic probability for the given entry, to preserve accuracy
+    log_probability = math.log(theta / (1-theta)) + sum_log_ratios(beta, entry)
 
-    for row in data:
-        probability_0 = beta_product(beta, row, 'False')
-        probability_1 = beta_product(beta, row, 'True')
+    # Convert to sigmoid probability, where 0.5 divides false from true
+    probability = 1 / (1 + math.e**(-log_probability))
 
-        probability_0 *= ((theta**0) * (1 - theta)**1)
-        probability_1 *= ((theta**1) * (1 - theta)**0)
-
-        if probability_0 + probability_1 > 0 and probability_0 > probability_1:
-            percentage_0 = colored(str(round((probability_0 / (probability_0
-                + probability_1)) * 100, 1)) + '% False', 'red')
-            percentage_1 = colored(str(round((probability_1 / (probability_0
-                + probability_1)) * 100, 1)) + '% True', 'white')
-        elif probability_0 + probability_1 > 0 and probability_1 > probability_0:
-            percentage_0 = colored(str(round((probability_0 / (probability_0
-                + probability_1)) * 100, 1)) + '% False', 'white')
-            percentage_1 = colored(str(round((probability_1 / (probability_0
-                + probability_1)) * 100, 1)) + '% True', 'green')
-        else:
-            percentage_0 = colored(str(round(probability_0, 1)) + '% False', 'white')
-            percentage_1 = colored(str(round(probability_1, 1)) + '% True', 'white')
-
-        if lines > 0:
-            print(f"Entry: {row['project']}, {row['description']},",
-                  f"{row['tags']} - ({row['modified']})\n\tProbability:",
-                  f"{percentage_1}, {percentage_0}")
-            lines -= 1
+    # Print results if output is requested
+    if output:
+        p = round(probability * 100, 1)
+        percents = [round(100 - p, 1), p]
+        results = color_results(percents, entry['modified'])
+        print(f"Entry: {entry['project']}, {entry['description']},",
+              f"{entry['tags']} - ({results[2]})\n\tProbability:",
+              f"{results[1]}, {results[0]}")
 
 
-# Determine probability of an entry being manually updated
-def compute_log_probability(theta, beta, data, lines):
-    print('Output format is...\nEntry: <Project>, <Description>, <Tag>',
-          '- (<Modified>)\n\tProbability: <##.#>% True, <##.#>% False\n')
-
-    for row in data:
-        log_probability_ratio = log_beta_sum(beta, row)
-
-        log_probability_ratio += math.log(theta / (1 - theta))
-
-        if probability_0 + probability_1 > 0 and probability_0 > probability_1:
-            percentage_0 = colored(str(round((probability_0 / (probability_0
-                + probability_1)) * 100, 1)) + '% False', 'red')
-            percentage_1 = colored(str(round((probability_1 / (probability_0
-                + probability_1)) * 100, 1)) + '% True', 'white')
-        elif probability_0 + probability_1 > 0 and probability_1 > probability_0:
-            percentage_0 = colored(str(round((probability_0 / (probability_0
-                + probability_1)) * 100, 1)) + '% False', 'white')
-            percentage_1 = colored(str(round((probability_1 / (probability_0
-                + probability_1)) * 100, 1)) + '% True', 'green')
-        else:
-            percentage_0 = colored(str(round(probability_0, 1)) + '% False', 'white')
-            percentage_1 = colored(str(round(probability_1, 1)) + '% True', 'white')
-
-        if lines > 0:
-            print(f"Entry: {row['project']}, {row['description']},",
-                  f"{row['tags']} - ({row['modified']})\n\tProbability:",
-                  f"{percentage_1}, {percentage_0}")
-            lines -= 1
-
-
-# Compute product of beta probabilities for given feature
-def beta_product(beta, row, outcome):
-    probability = 1.0
-    features = ['project', 'description', 'tags']
-
-    for feature in features:
-        probability *= (beta[feature][row[feature]][outcome] /
-                        beta[feature][row[feature]]['Total'])
-    return probability
-
-
-# Compute product of beta probabilities for given feature
-def log_beta_sum(beta, row):
-    log_probability = 0.0
-    features = ['project', 'description', 'tags']
-
-    for feature in features:
-        log_probability += math.log(beta[feature][row[feature]]['True'] /
-                        beta[feature][row[feature]]['False'])
-    return log_probability
-
-
-# Examine time entries, building Bayesian model
-def bayes(features, lines):
+# Examine time entries, building live Bayesian model
+def bayes(lines):
     print('BAYES:')
 
     # Open passed training data set
@@ -146,30 +120,35 @@ def bayes(features, lines):
     print(f"Training model using data from train.csv",
           f"({len(data_train)} entries)")
     
-    # Count total number of prior manual updates, termed as alpha
-    alpha_0, alpha_1 = compute_alpha(data_train)
+    # Setup list of features to track, termed as beta
+    beta = setup_beta()
 
-    # Compute prior probability of an entry being modified, termed as theta
-    theta = alpha_1 / (alpha_0 + alpha_1)
+    # Loop over training data for live model learning
+    print(f"Printing result every {lines} entries, output format is...",
+          f"\nEntry: <Project>, <Description>, <Tag> - (<Modified>)",
+          f"\n\tProbability: <##.#>% True, <##.#>% False\n")
     
-    # Build evidence likelihood lookup table, termed as beta
-    beta = copy.deepcopy(features)
-    for key, value in features.items():
-        for item in value:
-            beta[key][item] = compute_beta(data_train, key, item)
+    for row in data_train:
+        if data_train.index(row) % lines == 0:
+            output = True
+        else:
+            output = False
 
-    # Open passed testing data set
-    with open(os.path.join(data_path, 'test.csv')) as file:
-        data_test = open_csv(file)
-    print(f"Testing model using data from test.csv",
-          f"({len(data_test)} entries)")
-    
-    # Calculate probability of manual action on test data set
-    compute_probability(theta, beta, data_test, lines)
+        # Update beta features with new entry
+        beta = update_beta(beta, row)
+        
+        # Count total number of prior manual updates, termed as alpha
+        alpha = compute_alpha(beta)
+
+        # Compute prior probability of an entry being modified, termed as theta
+        theta = alpha[1] / (alpha[0] + alpha[1])
+
+        # Calculate probability of manual action based on past values
+        compute_probability(beta, theta, output, row)
+
     print('Finished testing model...\n')
 
 
 # DEBUG
 if __name__ == '__main__':
-    features = preprocess(0.5, 0.2, 0.3)
-    bayes(features, 20)
+    bayes(20)

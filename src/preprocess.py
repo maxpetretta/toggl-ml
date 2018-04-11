@@ -17,21 +17,6 @@ def verify(size_train, size_test, size_validate):
         return False
 
 
-# Find all unique values for each feature field
-def find_features(header, file):
-    reader = csv.DictReader(file)
-    features = {}
-    
-    for row in reader:
-        for key, value in row.items():
-            if key not in ['project', 'description', 'tags']:
-                break
-            else:
-                features.setdefault(key, {'Unknown': None})
-                features[key][value] = None          
-    return features
-
-
 # Divide data into three sets based on passed split percentages
 def split(data, size_train, size_test, size_validate):
     length = len(data)
@@ -67,10 +52,6 @@ def preprocess(size_train, size_test, size_validate):
         reader = csv.reader(file)
         header = next(reader)
         data = list(reader)
-    
-        # Save lists of feature classification values
-        file.seek(0)
-        features = find_features(header, file)
 
     # Randomize time entries and split into three separate files
     random.shuffle(data)
@@ -82,11 +63,6 @@ def preprocess(size_train, size_test, size_validate):
         create_file(header, train, train_file)
         create_file(header, test, test_file)
         create_file(header, validate, validate_file)
-
-    print(f"Features: Projects ({len(features['project'])}),",
-          f"Descriptions ({len(features['description'])}),",
-          f"Tags ({len(features['tags'])})\n")
-    return features
 
 
 # DEBUG
