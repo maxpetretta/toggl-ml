@@ -83,6 +83,37 @@ def compute_probability(theta, beta, data, lines):
             lines -= 1
 
 
+# Determine probability of an entry being manually updated
+def compute_log_probability(theta, beta, data, lines):
+    print('Output format is...\nEntry: <Project>, <Description>, <Tag>',
+          '- (<Modified>)\n\tProbability: <##.#>% True, <##.#>% False\n')
+
+    for row in data:
+        log_probability_ratio = log_beta_sum(beta, row)
+
+        log_probability_ratio += math.log(theta / (1 - theta))
+
+        if probability_0 + probability_1 > 0 and probability_0 > probability_1:
+            percentage_0 = colored(str(round((probability_0 / (probability_0
+                + probability_1)) * 100, 1)) + '% False', 'red')
+            percentage_1 = colored(str(round((probability_1 / (probability_0
+                + probability_1)) * 100, 1)) + '% True', 'white')
+        elif probability_0 + probability_1 > 0 and probability_1 > probability_0:
+            percentage_0 = colored(str(round((probability_0 / (probability_0
+                + probability_1)) * 100, 1)) + '% False', 'white')
+            percentage_1 = colored(str(round((probability_1 / (probability_0
+                + probability_1)) * 100, 1)) + '% True', 'green')
+        else:
+            percentage_0 = colored(str(round(probability_0, 1)) + '% False', 'white')
+            percentage_1 = colored(str(round(probability_1, 1)) + '% True', 'white')
+
+        if lines > 0:
+            print(f"Entry: {row['project']}, {row['description']},",
+                  f"{row['tags']} - ({row['modified']})\n\tProbability:",
+                  f"{percentage_1}, {percentage_0}")
+            lines -= 1
+
+
 # Compute product of beta probabilities for given feature
 def beta_product(beta, row, outcome):
     probability = 1.0
@@ -92,6 +123,17 @@ def beta_product(beta, row, outcome):
         probability *= (beta[feature][row[feature]][outcome] /
                         beta[feature][row[feature]]['Total'])
     return probability
+
+
+# Compute product of beta probabilities for given feature
+def log_beta_sum(beta, row):
+    log_probability = 0.0
+    features = ['project', 'description', 'tags']
+
+    for feature in features:
+        log_probability += math.log(beta[feature][row[feature]]['True'] /
+                        beta[feature][row[feature]]['False'])
+    return log_probability
 
 
 # Examine time entries, building Bayesian model
