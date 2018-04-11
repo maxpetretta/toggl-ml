@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 requests = "*"
 termcolor = "*"
+matplotlib = "*"
 
 [dev-packages]
 pylint = "*"

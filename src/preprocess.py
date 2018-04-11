@@ -40,7 +40,7 @@ def create_file(header, data, file):
 
 # Prepare data for learning model
 def preprocess(size_train, size_test, size_validate):
-    print('PREPROCESS:')
+    print('\nPREPROCESS:')
 
     # Verify set sizes add to 1
     if not verify(size_train, size_test, size_validate):
