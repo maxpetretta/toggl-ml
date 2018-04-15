@@ -1,4 +1,4 @@
-# Preprocess time entry data into random training, testing, and validation sets
+# Split time entry data into random training, testing, and validation sets
 import os
 import csv
 import random

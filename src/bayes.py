@@ -134,7 +134,7 @@ def compute_error(errors, count, output, entry):
 def bayes(skip):
     print('\nBAYES:')
 
-    # Open passed training data set
+    # Open training data set
     with open(os.path.join(data_path, 'train.csv')) as file:
         data_train = open_csv(file)
     print(f"Training model using data from train.csv",
@@ -167,7 +167,13 @@ def bayes(skip):
         
         # Compute misclassification error rate of model
         entry, errors = compute_error(errors, count, output, entry)
-
+    
+    # Save updated training data to new .csv file
+    keys = data_train[0].keys()
+    with open(os.path.join(data_path, 'model.csv'), 'w') as file:
+        writer = csv.DictWriter(file, fieldnames=keys)
+        writer.writeheader()
+        writer.writerows(data_train)
     print('Finished training model...')
 
 
