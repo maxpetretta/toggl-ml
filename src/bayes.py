@@ -4,13 +4,13 @@ import csv
 import copy
 import math
 from termcolor import colored
-# from matplotlib import pyplot
 
 
 # Global variables
 project_path = os.getcwd()
 data_path = os.path.join(project_path, 'data/')
 feature_list = ['project', 'description', 'tags']
+
 
 # Convert data .csv file to list of dictionaries structure
 def open_csv(file):
@@ -38,13 +38,11 @@ def update_beta(beta, entry):
             break
         elif value not in beta.values():
 
-            # Update Unknown values
+            # New values add to the 'Unknown' category
             beta[key]['Unknown'][entry['modified']] += 1
             beta[key]['Unknown']['Total'] += 1
-            # TODO
-            beta[key].setdefault(value, {'True': 1, 'False': 1, 'Total': 1})
+            beta[key].setdefault(value, {'True': 1, 'False': 1, 'Total': 1})    # TODO
             
-        # Update new values
         beta[key][value][entry['modified']] += 1
         beta[key][value]['Total'] += 1
     return beta
@@ -72,22 +70,18 @@ def sum_log_ratios(beta, entry):
 
 
 # Color the larger of two percentages
-def color_results(percents, modified):
+def color_output(percents, modified):
     results = ['', '', '']
-    percent_0 = str(percents[0]) + '% False'
-    percent_1 = str(percents[1]) + '% True'
+    percent_true = str(percents[1]) + '% True'
+    percent_false = str(percents[0]) + '% False'
+    
+    color_true = ('green' if modified == 'True' else 'white')
+    color_false = ('white' if modified == 'True' else 'red')
+    color_result = ('green' if modified == 'True' else 'red')
 
-    if modified == 'False':
-        results[2] = colored(modified, 'red')
-    else:
-        results[2] = colored(modified, 'green')
-
-    if percents[0] > percents[1]:
-        results[0] = colored(percent_0, 'red')
-        results[1] = colored(percent_1, 'white')
-    else:
-        results[0] = colored(percent_0, 'white')
-        results[1] = colored(percent_1, 'green')
+    results[0] = colored(percent_false, color_false)
+    results[1] = colored(percent_true, color_true)
+    results[2] = colored(modified, color_result)
     return results
 
 
@@ -107,7 +101,7 @@ def compute_probability(beta, theta, output, entry):
     if output:
         p = round(probability * 100, 1)
         percents = [round(100 - p, 1), p]
-        results = color_results(percents, entry['modified'])
+        results = color_output(percents, entry['modified'])
         print(f"Entry: {entry['project']}, {entry['description']},",
               f"{entry['tags']} - ({results[2]})\n\tProbability:",
               f"{results[1]}, {results[0]}")
@@ -116,6 +110,8 @@ def compute_probability(beta, theta, output, entry):
 
 # Find the total number of misclassifications to show the error rate
 def compute_error(errors, count, output, entry):
+
+    # Save a prior error rate to show delta change in output
     prior_rate = errors / ((count - 1) if count > 1 else 1)
 
     if entry['modified'] == 'False' and entry['probability'] >= 0.5:
@@ -126,19 +122,11 @@ def compute_error(errors, count, output, entry):
     entry['error'] = error_rate
 
     # Print results if output is requested
-    result = round(error_rate, 3)
-    delta = round(error_rate - prior_rate, 4)
-
-    if delta > 0:
-        result = colored(str(result), 'red')
-    elif delta < 0:
-        result = colored(str(result), 'green')
-    elif delta == 0:
-        result = colored(str(result), 'white')
-
     if output:
-        print(f"\tError Rate: {result} ({delta})\n")
-    
+        delta = round(error_rate - prior_rate, 4)
+        delta = "{0:+}".format(delta)
+        rounded_rate = round(error_rate, 3)
+        print(f"\tError Rate: {rounded_rate} ({delta})\n")
     return (entry, errors)
 
 
@@ -159,13 +147,11 @@ def bayes(skip):
     errors = 0
     print(f"Printing result every {skip} entries, output format is...",
           f"\nEntry: <Project>, <Description>, <Tag> - (<Modified>)",
-          f"\n\tProbability: <##.#>% True, <##.#>% False")
+          f"\n\tProbability: <##.#>% True, <##.#>% False",
+          f"\n\tError Rate: <#.###> (<+/- ####>)\n")
     
     for count, entry in enumerate(data_train, 1):
-        if data_train.index(entry) % skip == 0:
-            output = True
-        else:
-            output = False
+        output = (True if count % skip == 0 else False)
 
         # Update beta features with new entry
         beta = update_beta(beta, entry)
@@ -181,9 +167,6 @@ def bayes(skip):
         
         # Compute misclassification error rate of model
         entry, errors = compute_error(errors, count, output, entry)
-    
-    # Graph progression of misclassification error rates
-    # pyplot.plot('# of Entries', 'Error Rate', data='error')
 
     print('Finished training model...')
 

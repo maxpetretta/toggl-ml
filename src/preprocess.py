@@ -11,7 +11,7 @@ data_path = os.path.join(project_path, 'data/')
 
 # Check if passed data set split percentages add to 1.0 (100%)
 def verify(size_train, size_test, size_validate):
-    if size_train + size_test + size_validate == 1:
+    if size_train + size_test + size_validate == 1.0:
         return True
     else:
         return False
@@ -45,7 +45,7 @@ def preprocess(size_train, size_test, size_validate):
     # Verify set sizes add to 1
     if not verify(size_train, size_test, size_validate):
         print('ERROR: Data set sizes do not add to 1.0')
-        return
+        exit()
 
     # Open .csv file and prepare to partition
     with open(os.path.join(data_path, 'data.csv')) as file:
