@@ -2,6 +2,7 @@
 from export import export
 from preprocess import preprocess
 from bayes import bayes
+from analyse import analyse
 
 
 # Instructions: Run all script files from the top level directory, calling...
@@ -31,6 +32,11 @@ def main(since, until, size_train, size_test, size_validate, skip):
     
     # Run Bayesian classification on the test data set, printing outcomes
     bayes(skip)
+
+    # Show visual results of Bayes model of training data
+    analyse()
+
+    print('\nFINISHED MAIN\n')
 
 
 # DEBUG

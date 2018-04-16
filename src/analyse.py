@@ -1,6 +1,8 @@
-# Plot graphs and distributions of model training data
+# Plot various graphs and distributions of model training data
 import os
 import csv
+import dateutil.parser
+
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
@@ -20,11 +22,12 @@ def open_csv(file):
     return data
 
 
-# Plot the ending totals of false positive/negative values
+# Plot the ending totals of classification values
 def plot_confusion(data):
     values = [0, 0, 0, 0]
     labels = ['True Positive', 'True Negative',
               'False Positive', 'False Negative']
+    colors = ['green', 'limegreen', 'red', 'darkorange']
 
     for entry in data:
         modified = entry['modified']
@@ -39,22 +42,55 @@ def plot_confusion(data):
         elif modified == 'True' and probability < 0.5:
             values[3] += 1
 
-    plt.pie(values, labels=labels, autopct=lambda p: round(p/100 * len(data), 0))
-    plt.show()
+    plt.pie(values, labels=labels, colors=colors, autopct=lambda p:
+            round(p/100 * len(data)))
+    plt.title('Confusion Matrix Values')
 
 
-# Plot the progression of misclassification 
+# Plot the progression of the misclassification error rate
 def plot_misclassification(data):
-    x = []
-    y = []
+    x, y = [], []
     for index, entry in enumerate(data, 1):
         x.append(index)
         y.append(float(entry['error']))
+           
     plt.scatter(x, y)
-    plt.show()
+    plt.title('Misclassification Rate')
+    plt.xlabel('Entry Number')
+    plt.ylabel('Error Rate (Percentage)')
+    plt.grid(linestyle='--')
 
 
-# Visually examine data after being processed through the model
+# Plot the histogram of entry start/end times
+def plot_times(data, target):
+    times = []
+    for entry in data:
+        date = dateutil.parser.parse(entry[target])
+        times.append(date.hour)
+  
+    plt.hist(times)
+    plt.title(f"{target.capitalize()} Time Distribution")
+    plt.xlabel('Time (By Hour)')
+    plt.ylabel('Frequency')
+    plt.grid(linestyle='--')
+    plt.xticks(range(0, 24, 2))
+
+
+# Plot the histogram of entry durations
+def plot_duration(data):
+    durations = []
+    for entry in data:
+        minutes = (int(entry['duration'])/1000) / 60
+        durations.append(round(minutes))
+      
+    plt.hist(durations)
+    plt.title('Duration Distribution')
+    plt.xlabel('Time (Minutes)')
+    plt.ylabel('Frequency')
+    plt.grid(linestyle='--')
+    
+
+# Visually examine data after being processed through model
 def analyse():
     print('\nANALYSE:')
 
@@ -63,12 +99,33 @@ def analyse():
         data = open_csv(file)
     
     # Show confusion matrix values in pie chart
+    plt.figure(num=1, figsize=(10, 4))
+    plt.subplot(1, 2, 1)
     plot_confusion(data)
     
     # Show misclassification rate in scatter plot
+    plt.subplot(1, 2, 2)
     plot_misclassification(data)
 
+    print('Showing confusion and misclassification results')
+    plt.show()
+    
 
+    # Show distribution of starting times
+    plt.figure(num=2, figsize=(14, 4))
+    plt.subplot(1, 3, 1)
+    plot_times(data, 'start')
+
+    # Show distribution of ending times
+    plt.subplot(1, 3, 2)
+    plot_times(data, 'end')
+
+    # Show distribution of entry durations
+    plt.subplot(1, 3, 3)
+    plot_duration(data)
+
+    print('Showing time distribution results')
+    plt.show()
 
 
 # DEBUG
