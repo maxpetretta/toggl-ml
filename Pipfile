@@ -8,6 +8,7 @@ requests = "*"
 termcolor = "*"
 matplotlib = "*"
 python-dateutil = "*"
+scipy = "*"
 
 [dev-packages]
 pylint = "*"

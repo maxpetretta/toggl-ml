@@ -3,13 +3,17 @@ import os
 import csv
 import copy
 import math
+import dateutil.parser
 from termcolor import colored
+from scipy import special
 
 
 # Global variables
 project_path = os.getcwd()
 data_path = os.path.join(project_path, 'data/')
 feature_list = ['project', 'description', 'tags']
+
+kappa = (2/24) * (2*math.pi)
 
 
 # Convert data .csv file to list of dictionaries structure
@@ -85,14 +89,108 @@ def color_output(percents, modified):
     return results
 
 
-# Determine probability of an entry being manually updated
-def compute_probability(entry, beta, theta, output):
-    
-    # Find logarithmic probability for the given entry, to preserve accuracy
-    log_probability = math.log(theta / (1-theta)) + sum_log_ratios(entry, beta)
+# Determine probabilities for categorical features on time entry
+def compute_prob_categorical(entry, previous):
 
+    # Update previous beta features with new entry
+    old_beta = (previous['beta'] if previous is not None else setup_beta())
+    beta = update_beta(entry, old_beta)
+    
+    # Count total number of prior manual updates, termed as alpha
+    alpha = compute_alpha(beta)
+
+    # Compute prior probability of an entry being modified, termed as theta
+    theta = alpha[1] / (alpha[0] + alpha[1])
+    
+    # Find logarithmic probability for the categorical features and save values
+    prob_categorical = math.log(theta / (1-theta)) + sum_log_ratios(entry, beta)
+    entry['beta'] = beta
+
+    return (entry, prob_categorical)
+
+
+# Compute new values of the von Mises concentration and direction parameters
+def update_hyperparameters(x, a, b):
+    a_prime = kappa * ((a * math.sin(b)) + math.sin(x))
+    
+    b_numerator = (a * math.sin(b)) + math.sin(x)
+    b_denominator = (a * math.cos(b)) + math.cos(x)
+    b_prime = math.atan(b_numerator / b_denominator)
+
+    # Enforce parameter limits
+    a_prime = (a_prime if a_prime > 0 else a)                                   # TODO
+    b_prime = (b_prime if b_prime > 0 and b_prime <= (2*math.pi) else b)        # TODO
+
+    return (a_prime, b_prime)
+
+
+# Determine probabilities for target time features on time entry
+def compute_prob_time(entry, previous, target):
+
+    # Retrieve previous hyperparameter values
+    a_0, b_0 = ((previous['a_0'], previous['b_0'])
+        if previous is not None else (1, 1))                                    # TODO
+    a_1, b_1 = ((previous['a_1'], previous['b_1'])
+        if previous is not None else (1, 1))                                    # TODO
+
+    # Update von Mises hyperparameters with the new value of target time x
+    x = (dateutil.parser.parse(entry[target]).hour / 24) * (2*math.pi)
+    a_0_prime, b_0_prime = (update_hyperparameters(x, a_0, b_0)
+        if entry['modified'] == 'False' else (a_0, b_0))
+    a_1_prime, b_1_prime = (update_hyperparameters(x, a_1, b_1)
+        if entry['modified'] == 'True' else (a_1, b_1))
+    
+    # Find logaritmic Bessel function ratio
+    bessel = math.log(special.iv(0, a_0_prime) / special.iv(0, a_1_prime))
+
+    # Compute final time probability and save values
+    prob_time = ((a_1_prime * math.cos(x-b_1_prime))
+        - (a_0_prime * math.cos(x-b_0_prime))) + bessel
+    entry['a_0'], entry['b_0'] = a_0_prime, b_0_prime
+    entry['a_1'], entry['b_1'] = a_1_prime, b_1_prime
+
+    return (entry, prob_time)
+
+
+# Determine probability for duration feature on time entry
+def compute_prob_duration(entry, previous):
+
+    # Retrieve previous hyperparameter values
+    alpha_0, beta_0 = ((previous['alpha_0'], previous['beta_0'])
+        if previous is not None else (1, 1))                                    # TODO
+    alpha_1, beta_1 = ((previous['alpha_1'], previous['beta_1'])
+        if previous is not None else (1, 1))                                    # TODO
+    
+    # Update gamma hyperparameters with new value of duration x
+    x = int(entry['duration'])
+    alpha_0, beta_0 = ((alpha_0 + 1, beta_0 + x)
+        if entry['modified'] == 'False' else (alpha_0, beta_0))
+    alpha_1, beta_1 = ((alpha_1 + 1, beta_1 + x)
+        if entry['modified'] == 'True' else (alpha_1, beta_1))
+    
+    # Find logarithmic gamma function ratio
+    gamma_ratio = math.log(special.gamma(alpha_0) / special.gamma(alpha_1))     # TODO
+
+    # Compute final duration probability and save values
+    term_alpha = (alpha_1 - alpha_0) * math.log((x if x > 0 else 1))
+    term_beta = (beta_0 - beta_1) * x
+    term_combined = (alpha_1 * math.log(beta_1)) - (alpha_0 * math.log(beta_0))
+    
+    prob_duration = term_alpha + term_beta + term_combined + gamma_ratio
+    entry['alpha_0'], entry['beta_0'] = alpha_0, beta_0
+    entry['alpha_1'], entry['beta_1'] = alpha_1, beta_1
+
+    return (entry, prob_duration)
+
+
+# Determine probability of the entry being modified from feature probabilities
+def compute_prob_sigmoid(entry, p1, p2, p3, p4, output):
+    
+    # Sum probability values
+    prob_sum = p1 + p2 + p3 + p4
+    
     # Convert to sigmoid probability, where 0.5 divides false from true
-    probability = 1 / (1 + math.e**(-log_probability))
+    probability = 1 / (1 + math.e**(-prob_sum))
 
     # Save probability results with the entry
     entry['probability'] = probability
@@ -103,10 +201,10 @@ def compute_probability(entry, beta, theta, output):
         percents = [round(100 - p, 1), p]
         results = color_output(percents, entry['modified'])
         print(f"Entry: {entry['project']}, {entry['description']},",
-              f"{entry['tags']} - ({results[2]})\n\tProbability:",
-              f"{results[1]}, {results[0]}")
+            f"{entry['tags']} - ({results[2]})\n\tProbability:",
+            f"{results[1]}, {results[0]}")
     return entry
-
+    
 
 # Find the total number of misclassifications to show the mean error rate
 def compute_error(entry, previous, errors, count, output):
@@ -131,6 +229,7 @@ def compute_error(entry, previous, errors, count, output):
         delta = "{0:+}".format(delta)
         rounded_rate = round(mean_rate, 3)
         print(f"\tError Rate: {rounded_rate} ({delta})\n")
+
     return (entry, errors)
 
 
@@ -143,9 +242,6 @@ def bayes(skip):
         data_train = open_csv(file)
     print(f"Training model using data from train.csv",
           f"({len(data_train)} entries)")
-    
-    # Setup list of features to track, termed as beta
-    beta = setup_beta()
 
     # Loop over training data for live model learning
     errors = 0
@@ -156,21 +252,23 @@ def bayes(skip):
     
     for count, entry in enumerate(data_train, 1):
         output = (True if count % skip == 0 else False)
+        previous = (data_train[count - 2] if count > 1 else None)
 
-        # Update beta features with new entry
-        beta = update_beta(entry, beta)
-        
-        # Count total number of prior manual updates, termed as alpha
-        alpha = compute_alpha(beta)
+        # Calculate probability of manual action based on categorical values
+        entry, prob_categorical = compute_prob_categorical(entry, previous)
 
-        # Compute prior probability of an entry being modified, termed as theta
-        theta = alpha[1] / (alpha[0] + alpha[1])
+        # Calculate probabilities of manual action based on time values
+        entry, prob_time_start = compute_prob_time(entry, previous, 'start')
+        entry, prob_time_end = compute_prob_time(entry, previous, 'end')
 
-        # Calculate probability of manual action based on past values
-        entry = compute_probability(entry, beta, theta, output)
+        # Calculate probability of manual action based on duration value
+        # entry, prob_duration = compute_prob_duration(entry, previous)
+
+        # Calculate true probability using sigmoid function
+        entry = compute_prob_sigmoid(entry, prob_categorical, 0,
+                                     0, 0, output)
         
         # Compute misclassification error rate of model
-        previous = (data_train[count - 2] if count > 1 else None)
         entry, errors = compute_error(entry, previous, errors, count, output)
     
     # Save updated training data to new .csv file
