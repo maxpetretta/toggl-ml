@@ -32,7 +32,7 @@ def setup_beta():
 
 
 # Count new entry of feature information
-def update_beta(beta, entry):
+def update_beta(entry, beta):
     for key, value in entry.items():
         if key not in feature_list:
             break
@@ -60,7 +60,7 @@ def compute_alpha(beta):
 
 
 # Compute sum of logarithmic beta probabilities for the entry's feature category
-def sum_log_ratios(beta, entry):
+def sum_log_ratios(entry, beta):
     log_sum = 0.0
 
     for feature in feature_list:
@@ -86,10 +86,10 @@ def color_output(percents, modified):
 
 
 # Determine probability of an entry being manually updated
-def compute_probability(beta, theta, output, entry):
+def compute_probability(entry, beta, theta, output):
     
     # Find logarithmic probability for the given entry, to preserve accuracy
-    log_probability = math.log(theta / (1-theta)) + sum_log_ratios(beta, entry)
+    log_probability = math.log(theta / (1-theta)) + sum_log_ratios(entry, beta)
 
     # Convert to sigmoid probability, where 0.5 divides false from true
     probability = 1 / (1 + math.e**(-log_probability))
@@ -108,24 +108,28 @@ def compute_probability(beta, theta, output, entry):
     return entry
 
 
-# Find the total number of misclassifications to show the error rate
-def compute_error(errors, count, output, entry):
+# Find the total number of misclassifications to show the mean error rate
+def compute_error(entry, previous, errors, count, output):
 
-    # Save a prior error rate to show delta change in output
-    prior_rate = errors / ((count - 1) if count > 1 else 1)
+    # Retrieve prior error rate for calculating the mean
+    prior_rate = (previous['error'] if previous is not None else 0)
 
     if entry['modified'] == 'False' and entry['probability'] >= 0.5:
         errors += 1     # False positive
     elif entry['modified'] == 'True' and entry['probability'] < 0.5:
         errors += 1     # False negative
-    error_rate = errors / count
-    entry['error'] = error_rate
+    
+    # Find new mean error rate based on the previously examined entries
+    mean_split = 1 / count
+    error_rate = mean_split * errors
+    mean_rate = ((1-mean_split) * prior_rate) + (mean_split * error_rate)
+    entry['error'] = mean_rate
 
     # Print results if output is requested
     if output:
-        delta = round(error_rate - prior_rate, 4)
+        delta = round(mean_rate - prior_rate, 4)
         delta = "{0:+}".format(delta)
-        rounded_rate = round(error_rate, 3)
+        rounded_rate = round(mean_rate, 3)
         print(f"\tError Rate: {rounded_rate} ({delta})\n")
     return (entry, errors)
 
@@ -154,7 +158,7 @@ def bayes(skip):
         output = (True if count % skip == 0 else False)
 
         # Update beta features with new entry
-        beta = update_beta(beta, entry)
+        beta = update_beta(entry, beta)
         
         # Count total number of prior manual updates, termed as alpha
         alpha = compute_alpha(beta)
@@ -163,10 +167,11 @@ def bayes(skip):
         theta = alpha[1] / (alpha[0] + alpha[1])
 
         # Calculate probability of manual action based on past values
-        entry = compute_probability(beta, theta, output, entry)
+        entry = compute_probability(entry, beta, theta, output)
         
         # Compute misclassification error rate of model
-        entry, errors = compute_error(errors, count, output, entry)
+        previous = (data_train[count - 2] if count > 1 else None)
+        entry, errors = compute_error(entry, previous, errors, count, output)
     
     # Save updated training data to new .csv file
     keys = data_train[0].keys()
