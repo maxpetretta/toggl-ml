@@ -118,9 +118,13 @@ def update_hyperparameters(x, a, b):
     b_prime = math.atan(b_numerator / b_denominator)
 
     # Enforce parameter limits
-    a_prime = (a_prime if a_prime > 0 else a)                                   # TODO
-    b_prime = (b_prime if b_prime > 0 and b_prime <= (2*math.pi) else b)        # TODO
+    a_prime = (a_prime if a_prime > 0 else (0.01 * math.pi))
 
+    b_prime = (2 * b_prime) + math.pi
+    b_prime = (b_prime if b_prime > 0 and b_prime <= (2*math.pi) else (0.01*math.pi))
+    
+    # print('a_prime: ', a_prime)
+    # print('b_prime: ', b_prime)
     return (a_prime, b_prime)
 
 
@@ -128,10 +132,12 @@ def update_hyperparameters(x, a, b):
 def compute_prob_time(entry, previous, target):
 
     # Retrieve previous hyperparameter values
-    a_0, b_0 = ((previous['a_0'], previous['b_0'])
-        if previous is not None else (1, 1))                                    # TODO
-    a_1, b_1 = ((previous['a_1'], previous['b_1'])
-        if previous is not None else (1, 1))                                    # TODO
+    if previous is not None:
+        a_0, a_1, b_0, b_1 = (previous['a_0'], previous['a_1'],
+            previous['b_0'], previous['b_1'])
+    else:
+        a_0, a_1, b_0, b_1 = (math.pi, math.pi,
+            1 / (2*(math.pi**2)), 1 / (2*(math.pi**2)))
 
     # Update von Mises hyperparameters with the new value of target time x
     x = (dateutil.parser.parse(entry[target]).hour / 24) * (2*math.pi)
@@ -265,8 +271,8 @@ def bayes(skip):
         # entry, prob_duration = compute_prob_duration(entry, previous)
 
         # Calculate true probability using sigmoid function
-        entry = compute_prob_sigmoid(entry, prob_categorical, 0,
-                                     0, 0, output)
+        entry = compute_prob_sigmoid(entry, prob_categorical, prob_time_start,
+                                     prob_time_end, 0, output)
         
         # Compute misclassification error rate of model
         entry, errors = compute_error(entry, previous, errors, count, output)
