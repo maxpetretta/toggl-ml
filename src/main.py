@@ -1,7 +1,7 @@
 # Main script file for running toggl-ml
 from export import export
 from preprocess import preprocess
-from bayes import bayes
+from learn import learn
 from analyse import analyse
 
 
@@ -31,7 +31,7 @@ def main(since, until, size_train, size_test, size_validate, skip):
     preprocess(size_train, size_test, size_validate)
     
     # Run Bayesian classification on the test data set, printing outcomes
-    bayes(skip)
+    learn(skip)
 
     # Show visual results of Bayes model of training data
     analyse()
