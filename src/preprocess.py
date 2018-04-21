@@ -67,4 +67,4 @@ def preprocess(size_train, size_test, size_validate):
 
 # DEBUG
 if __name__ == '__main__':
-    preprocess(0.4, 0.3, 0.3)
+    preprocess(0.6, 0.2, 0.2)

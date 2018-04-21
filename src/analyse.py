@@ -41,6 +41,18 @@ def plot_confusion(data):
             values[2] += 1
         elif modified == 'True' and probability < 0.5:
             values[3] += 1
+    
+    # Calculate F1 score, for modified values
+    precision = 1 / (1 + (values[2]/values[0]))
+    recall = 1 / (1 + (values[3]/values[0]))
+    f1_score = 2 / ((1/precision) + (1/recall))
+    print('f1_score: ', f1_score)
+
+    # Calculate F2 score, for non-modified values
+    precision = 1 / (1 + (values[3]/values[1]))
+    recall = 1 / (1 + (values[2]/values[1]))
+    f2_score = 2 / ((1/precision) + (1/recall))
+    print('f2_score: ', f2_score)
 
     plt.pie(values, labels=labels, colors=colors, autopct=lambda p:
             round(p/100 * len(data)))
@@ -53,11 +65,29 @@ def plot_misclassification(data):
     for index, entry in enumerate(data, 1):
         x.append(index)
         y.append(float(entry['error']))
+    
+    print('error rate: ', y[-1])
            
     plt.scatter(x, y)
     plt.title('Misclassification Rate')
     plt.xlabel('Entry Number')
     plt.ylabel('Error Rate (Percentage)')
+    plt.grid(linestyle='--')
+
+
+# Plot the progression of the cross entropy rate
+def plot_entropy(data):
+    x, y = [], []
+    for index, entry in enumerate(data, 1):
+        x.append(index)
+        y.append(float(entry['entropy_rate']))
+    
+    print('entropy rate: ', y[-1])
+           
+    plt.scatter(x, y)
+    plt.title('Entropy Rate')
+    plt.xlabel('Entry Number')
+    plt.ylabel('Entropy Rate (Percentage)')
     plt.grid(linestyle='--')
 
 
@@ -99,18 +129,21 @@ def analyse():
         data = open_csv(file)
     
     # Show confusion matrix values in pie chart
-    plt.figure(num=1, figsize=(10, 4))
-    plt.subplot(1, 2, 1)
+    plt.figure(num=1, figsize=(14, 4))
+    plt.subplot(1, 3, 1)
     plot_confusion(data)
     
     # Show misclassification rate in scatter plot
-    plt.subplot(1, 2, 2)
+    plt.subplot(1, 3, 2)
     plot_misclassification(data)
 
-    print('Showing confusion and misclassification results')
+    # Show cross entropy rate in scatter plot
+    plt.subplot(1, 3, 3)
+    plot_entropy(data)
+
+    print('Showing confusion, misclassification, and entropy results')
     plt.show()
     
-
     # Show distribution of starting times
     plt.figure(num=2, figsize=(14, 4))
     plt.subplot(1, 3, 1)

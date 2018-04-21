@@ -41,4 +41,4 @@ def main(since, until, size_train, size_test, size_validate, skip):
 
 # DEBUG
 if __name__ == '__main__':
-    main('2018-01-01', '2018-12-31', 0.5, 0.2, 0.3, 20)
+    main('2018-01-01', '2018-12-31', 0.7, 0.2, 0.1, 50)

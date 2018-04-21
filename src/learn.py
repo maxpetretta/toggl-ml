@@ -1,4 +1,4 @@
-# Apply live Naive-Bayes classifier to entries in passed data set
+# Apply live probability classifiers to entries in passed data set
 import os
 import csv
 import math
@@ -170,33 +170,29 @@ def compute_prob_duration(entry, previous):
         d_0 = d_1 = 1
     
     # Update gamma hyperparameters with new value of duration x
-    x = int(entry['duration']) / 3600000                                        # TODO
+    x = int(entry['duration']) / 3600000 / 24 / 7
     if entry['modified'] == 'False':
-        c_0, d_0 = c_0 + 1, d_0 + x
+        c_0, d_0 = c_0 + 1, (d_0 / (1 + d_0*x)) 
     else:
-        c_1, d_1 = c_1 + 1, d_1 + x
+        c_1, d_1 = c_1 + 1, (d_1 / (1 + d_1*x))
     
-    # Find logarithmic gamma function ratio
-    gamma_ratio = math.lgamma(c_0+1) - math.lgamma(c_1+1)
+    # # Find logarithmic gamma function ratio
+    # gamma_ratio = math.lgamma(c_0+1) - math.lgamma(c_1+1)
 
-    # Compute final duration probability and save values
-    term_c = (c_1 - c_0) * math.log((x if x > 0 else 1))
-    term_d = (d_0 - d_1) * x
-    term_cd = (c_1 * math.log(d_1)) - (c_0 * math.log(d_0))
+    # # Compute final duration probability and save values
+    # term_c = (c_1 - c_0) * math.log((x if x > 0 else 1))
+    # term_d = (d_0 - d_1) * x
+    # term_cd = (c_1 * math.log(d_1)) - (c_0 * math.log(d_0))
     
-    prob_duration = term_c + term_d + term_cd + gamma_ratio
+    # prob_duration = term_c + term_d + term_cd + gamma_ratio
+
+    # Log of the ratio of the probability of duration
+    term_cd = (d_0*c_1 - d_1*c_0) / (d_0*d_1)
+    term_log_cd = math.log(c_1/c_0) + math.log(d_0 / d_1)
+
+    prob_duration = term_cd * (-x) * term_log_cd
     entry['c_0'], entry['d_0'] = c_0, d_0
     entry['c_1'], entry['d_1'] = c_1, d_1
-
-    # print('c_0: ', c_0)
-    # print('c_1: ', c_1)
-    # print('d_0: ', d_0)
-    # print('d_1: ', d_1)
-    # print('gamma_ratio: ', gamma_ratio)
-    # print('term_c: ', term_c)
-    # print('term_d: ', term_d)
-    # print('term_cd: ', term_cd)
-    # print('prob_duration: ', prob_duration)
 
     return (entry, prob_duration)
 
@@ -222,12 +218,6 @@ def compute_prob_sigmoid(entry, p1, p2, p3, p4, output):
     
     # Sum all probability values
     prob_sum = p1 + p2 + p3 + p4
-
-    # print('p1: ', p1)
-    # print('p2: ', p2)
-    # print('p3: ', p3)
-    # print('p4: ', p4)
-    # print('prob_sum: ', prob_sum)
     
     # Convert to sigmoid probability, where 0.5 divides false from true
     probability = 1 / (1 + math.e**(-prob_sum))
@@ -248,24 +238,32 @@ def compute_prob_sigmoid(entry, p1, p2, p3, p4, output):
 def compute_error(entry, previous, errors, count, output):
 
     # Retrieve prior error rate for calculating the mean
-    prior_rate = (previous['error'] if previous is not None else 0)
+    prior_error_rate = (previous['error'] if previous is not None else 0)
+    prior_entropy_loss = (previous['entropy'] if previous is not None else 0)
+
+    entropy_loss = 0
+    log_ratio = math.log((1 - entry['probability']) / entry['probability'])
 
     if entry['modified'] == 'False' and entry['probability'] >= 0.5:
         errors += 1     # False positive
+        entropy_loss -= log_ratio
     elif entry['modified'] == 'True' and entry['probability'] < 0.5:
         errors += 1     # False negative
+        entropy_loss += log_ratio
     
-    # Find new mean error rate based on the previously examined entries
+    # Find new mean error rate and entropy loss rate
     ratio = 1 / count
-    error_rate = ratio * errors
-    mean_rate = ((1-ratio) * prior_rate) + (ratio * error_rate)
-    entry['error'] = mean_rate
+    error_rate = ratio * errors # (1-ratio) * prior_rate) + (ratio * error_rate)
+    entry['error'] = error_rate
+
+    entropy_rate = ((1-ratio) * prior_entropy_loss) + (ratio * entropy_loss)
+    entry['entropy'] = entropy_rate
 
     # Print results if output is requested
     if output:
-        delta = round(mean_rate - prior_rate, 4)
+        delta = round(error_rate - prior_error_rate, 4)
         delta = "{0:+}".format(delta)
-        rounded_rate = round(mean_rate, 3)
+        rounded_rate = round(error_rate, 3)
         print(f"\tError Rate: {rounded_rate} ({delta})\n")
 
     return (entry, errors)
@@ -308,7 +306,7 @@ def learn(skip):
 
         # Calculate true probability using sigmoid function
         entry = compute_prob_sigmoid(entry, prob_categorical, prob_time_start,
-                                     prob_time_end, 0, output)
+                                     prob_time_end, prob_duration, output)
         
         # Compute misclassification error rate of model
         entry, errors = compute_error(entry, previous, errors, count, output)
@@ -324,4 +322,4 @@ def learn(skip):
 
 # DEBUG
 if __name__ == '__main__':
-    learn(20)
+    learn(50)
