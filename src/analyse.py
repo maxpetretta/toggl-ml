@@ -80,7 +80,7 @@ def plot_entropy(data):
     x, y = [], []
     for index, entry in enumerate(data, 1):
         x.append(index)
-        y.append(float(entry['entropy_rate']))
+        y.append(float(entry['entropy']))
     
     print('entropy rate: ', y[-1])
            

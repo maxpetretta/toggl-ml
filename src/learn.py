@@ -175,16 +175,6 @@ def compute_prob_duration(entry, previous):
         c_0, d_0 = c_0 + 1, (d_0 / (1 + d_0*x)) 
     else:
         c_1, d_1 = c_1 + 1, (d_1 / (1 + d_1*x))
-    
-    # # Find logarithmic gamma function ratio
-    # gamma_ratio = math.lgamma(c_0+1) - math.lgamma(c_1+1)
-
-    # # Compute final duration probability and save values
-    # term_c = (c_1 - c_0) * math.log((x if x > 0 else 1))
-    # term_d = (d_0 - d_1) * x
-    # term_cd = (c_1 * math.log(d_1)) - (c_0 * math.log(d_0))
-    
-    # prob_duration = term_c + term_d + term_cd + gamma_ratio
 
     # Log of the ratio of the probability of duration
     term_cd = (d_0*c_1 - d_1*c_0) / (d_0*d_1)
