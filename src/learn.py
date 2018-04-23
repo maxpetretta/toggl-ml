@@ -61,7 +61,7 @@ def compute_kappa(data, target):
     mean = 0
     hours = []
     for entry in data:
-        hour = (dateutil.parser.parse(entry[target]).hour / 24) * (2*math.pi)   # TODO
+        hour = (dateutil.parser.parse(entry[target]).hour / 24) * (2*math.pi)   
         mean += hour
         hours.append(hour)
     mean /= len(hours)
@@ -368,8 +368,8 @@ def learn(days, sets):
             entry, prob_duration = compute_prob_duration(entry, previous)
 
             # Calculate true probability using sigmoid function
-            entry = compute_prob_sigmoid(entry, prob_categorical, prob_time_start,
-                                        prob_time_end, prob_duration)
+            entry = compute_prob_sigmoid(entry, prob_categorical,
+                prob_time_start, prob_time_end, prob_duration)
             
             # Compute misclassification error rate of model
             entry, errors = compute_error(entry, previous, errors, count)
