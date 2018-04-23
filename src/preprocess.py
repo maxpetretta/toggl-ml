@@ -39,7 +39,7 @@ def create_file(header, data, file):
 
 
 # Prepare data for learning model
-def preprocess(size_train, size_test, size_validate, shuffle):
+def preprocess(size_train, size_test, size_validate):
     print('\nPREPROCESS:')
 
     # Verify set sizes add to 1
@@ -53,9 +53,7 @@ def preprocess(size_train, size_test, size_validate, shuffle):
         header = next(reader)
         data = list(reader)
 
-    # Randomize time entries and split into three separate files
-    if shuffle:
-        random.shuffle(data)
+    # Split time entries into three separate files
     train, test, validate = split(data, size_train, size_test, size_validate)
 
     with open(os.path.join(data_path, 'train.csv'), 'w') as train_file, \
@@ -68,4 +66,4 @@ def preprocess(size_train, size_test, size_validate, shuffle):
 
 # DEBUG
 if __name__ == '__main__':
-    preprocess(0.6, 0.2, 0.2, True)
+    preprocess(0.6, 0.2, 0.2)

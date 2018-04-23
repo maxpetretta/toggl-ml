@@ -2,9 +2,9 @@
 import os
 import csv
 import math
+import random
 import dateutil.parser
 from scipy import special
-from termcolor import colored
 
 
 # Global variables
@@ -20,6 +20,38 @@ def open_csv(file):
     for row in reader:
         data.append(row)
     return data
+
+
+# Divide passed data into bundles of chronological data, spliting by days
+def split_data(data, days):
+
+    # Initialize variables
+    index = 0
+    start = 0
+    count = days
+    bundles = []
+
+    for entry in reversed(data):
+        current = dateutil.parser.parse(entry['start']).day
+
+        # Create a new bundle if the index has been incremented
+        if index >= len(bundles):
+            start = current
+            bundles.append([])
+        
+        # Update start value if the current day value changes
+        elif current != start:
+            count -= 1
+            start = current
+
+        bundles[index].append(entry)
+
+        # Reset the day counter once number of days has passed
+        if count == 0:
+            index += 1
+            count = days
+
+    return bundles
 
 
 # Examine training data to find value for hyperparameter kappa
@@ -187,24 +219,8 @@ def compute_prob_duration(entry, previous):
     return (entry, prob_duration)
 
 
-# Color the larger of two percentages
-def color_output(percents, modified):
-    results = ['', '', '']
-    percent_true = str(percents[1]) + '% True'
-    percent_false = str(percents[0]) + '% False'
-    
-    color_true = ('green' if modified == 'True' else 'white')
-    color_false = ('white' if modified == 'True' else 'red')
-    color_result = ('green' if modified == 'True' else 'red')
-
-    results[0] = colored(percent_false, color_false)
-    results[1] = colored(percent_true, color_true)
-    results[2] = colored(modified, color_result)
-    return results
-
-
 # Determine probability of the entry being modified from feature probabilities
-def compute_prob_sigmoid(entry, p1, p2, p3, p4, output):
+def compute_prob_sigmoid(entry, p1, p2, p3, p4):
     
     # Sum all probability values
     prob_sum = p1 + p2 + p3 + p4
@@ -212,26 +228,15 @@ def compute_prob_sigmoid(entry, p1, p2, p3, p4, output):
     # Convert to sigmoid probability, where 0.5 divides false from true
     probability = 1 / (1 + math.e**(-prob_sum))
     entry['probability'] = probability
-
-    # Print results if output is requested
-    if output:
-        p = round(probability * 100, 1)
-        percents = [round(100 - p, 1), p]
-        results = color_output(percents, entry['modified'])
-        print(f"Entry: {entry['project']}, {entry['description']},",
-              f"{entry['tags']} - ({results[2]})\n\tProbability:",
-              f"{results[1]}, {results[0]}")
     return entry
     
 
-# Find the total number of misclassifications to show the mean error rate
-def compute_error(entry, previous, errors, count, output):
+# Find the total number of misclassifications to show the mean error rate and 
+def compute_error(entry, previous, errors, count):
 
-    # Retrieve prior error rate for calculating the mean
-    prior_error_rate = (previous['error'] if previous is not None else 0)
-    prior_entropy_loss = (previous['entropy'] if previous is not None else 0)
-
+    # Retrieve prior error and entropy rates for calculating the mean
     entropy_loss = 0
+    prior_entropy_loss = (previous['entropy'] if previous is not None else 0)
     log_ratio = math.log((1 - entry['probability']) / entry['probability'])
 
     if entry['modified'] == 'False' and entry['probability'] >= 0.5:
@@ -243,73 +248,169 @@ def compute_error(entry, previous, errors, count, output):
     
     # Find new mean error rate and entropy loss rate
     ratio = 1 / count
-    error_rate = ratio * errors # (1-ratio) * prior_rate) + (ratio * error_rate)
+    error_rate = ratio * errors
     entry['error'] = error_rate
 
     entropy_rate = ((1-ratio) * prior_entropy_loss) + (ratio * entropy_loss)
     entry['entropy'] = entropy_rate
 
-    # Print results if output is requested
-    if output:
-        delta = round(error_rate - prior_error_rate, 4)
-        delta = "{0:+}".format(delta)
-        rounded_rate = round(error_rate, 3)
-        print(f"\tError Rate: {rounded_rate} ({delta})\n")
-
     return (entry, errors)
 
 
+# Calculate the F1 and F2 scores for a given bundle's values
+def compute_scores(bundle):
+    scores = [0, 0]
+    values = {'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0}
+
+    for entry in bundle:
+        modified = entry['modified']
+        probability = float(entry['probability'])
+
+        if modified == 'True' and probability >= 0.5:
+            values['tp'] += 1
+        elif modified == 'False' and probability < 0.5:
+            values['tn'] += 1
+        elif modified == 'False' and probability >= 0.5:
+            values['fp'] += 1
+        elif modified == 'True' and probability < 0.5:
+            values['fn'] += 1
+    
+    # Calculate F1 score, for modified values
+    precision = 1 / (1 + (values['fp']/values['tp']))
+    recall = 1 / (1 + (values['fn']/values['tp']))
+    f1_score = 2 / ((1/precision) + (1/recall))
+    scores[0] = f1_score
+
+    # Calculate F2 score, for non-modified values
+    precision = 1 / (1 + (values['fn']/values['tn']))
+    recall = 1 / (1 + (values['fp']/values['tn']))
+    f2_score = 2 / ((1/precision) + (1/recall))
+    scores[1] = f2_score
+    return scores
+
+
+# Randomly select seeds for testing datasets from provided bundle values
+def generate_seeds(bundles, sets):
+    seeds = []
+    for _ in range(sets):
+        length = len(bundles)
+        seed = [random.choice(range(length)) for i in range(length)]
+        seeds.append(seed)
+    return seeds
+
+
+# Find mean error rates and scores for random sets of bundles
+def compute_datasets(bundles, seeds):
+    datasets = []
+
+    for seed in seeds:
+        datasets.append({})
+        datasets[-1]['seed'] = seed
+
+        # Sum all values within the set defined by the seed
+        error_rate = 0
+        entropy_loss = 0
+        scores = [0, 0]
+        for i in seed:
+            error_rate += bundles[i][-1]['error']
+            entropy_loss += bundles[i][-1]['entropy']
+            new_scores = compute_scores(bundles[i])
+            scores = [scores[i] + new_scores[i] for i in range(len(scores))]
+
+        # Find the mean values by dividing by the seed size
+        error_rate /= len(seed)
+        entropy_loss /= len(seed)
+        scores = [score / len(seed) for score in scores]
+
+        # Save all values onto the dataset dictionary
+        datasets[-1]['error'] = error_rate
+        datasets[-1]['entropy'] = entropy_loss
+        datasets[-1]['f1'] = scores[0]
+        datasets[-1]['f2'] = scores[1]
+    return datasets
+
+
 # Examine time entries, building live Bayesian model
-def learn(skip):
+def learn(days, sets, skip):
     print('\nBAYES:')
 
     # Open training data set
     with open(os.path.join(data_path, 'train.csv')) as file:
-        data_train = open_csv(file)
+        data = open_csv(file)
     print(f"Training model using data from train.csv",
-          f"({len(data_train)} entries)")
-
-    # Loop over training data for live model learning
-    errors = 0
-    kappa_start = compute_kappa(data_train, 'start')
-    kappa_end = compute_kappa(data_train, 'end')
-    print(f"Printing result every {skip} entries, output format is...",
-          f"\nEntry: <Project>, <Description>, <Tag> - (<Modified>)",
-          f"\n\tProbability: <##.#>% True, <##.#>% False",
-          f"\n\tError Rate: <#.###> (<+/- ####>)\n")
+          f"({len(data)} entries)")
     
-    for count, entry in enumerate(data_train, 1):
-        output = (True if count % skip == 0 else False)
-        previous = (data_train[count - 2] if count > 1 else None)
+    # Split training data into separate bundles, dividing by number of days
+    bundles = split_data(data, days)
 
-        # Calculate probability of manual action based on categorical values
-        entry, prob_categorical = compute_prob_categorical(entry, previous)
-
-        # Calculate probabilities of manual action based on time values
-        entry, prob_time_start = compute_prob_time(entry, previous,
-                                                   kappa_start, 'start')
-        entry, prob_time_end = compute_prob_time(entry, previous,
-                                                 kappa_end, 'end')
-
-        # Calculate probability of manual action based on duration value
-        entry, prob_duration = compute_prob_duration(entry, previous)
-
-        # Calculate true probability using sigmoid function
-        entry = compute_prob_sigmoid(entry, prob_categorical, prob_time_start,
-                                     prob_time_end, prob_duration, output)
+    # Loop over bundle data for live model learning
+    kappa_start = compute_kappa(data, 'start')
+    kappa_end = compute_kappa(data, 'end')
+            
+    for index, bundle in enumerate(bundles):
+        errors = 0
         
-        # Compute misclassification error rate of model
-        entry, errors = compute_error(entry, previous, errors, count, output)
+        for count, entry in enumerate(bundle, 1):
+            entry['bundle'] = index
+            previous = (bundle[count - 2] if count > 1 else None)
+
+            # Calculate probability of manual action based on categorical values
+            entry, prob_categorical = compute_prob_categorical(entry, previous)
+
+            # Calculate probabilities of manual action based on time values
+            entry, prob_time_start = compute_prob_time(entry, previous,
+                                                       kappa_start, 'start')
+            entry, prob_time_end = compute_prob_time(entry, previous,
+                                                     kappa_end, 'end')
+
+            # Calculate probability of manual action based on duration value
+            entry, prob_duration = compute_prob_duration(entry, previous)
+
+            # Calculate true probability using sigmoid function
+            entry = compute_prob_sigmoid(entry, prob_categorical, prob_time_start,
+                                        prob_time_end, prob_duration)
+            
+            # Compute misclassification error rate of model
+            entry, errors = compute_error(entry, previous, errors, count)
+        
+        # Output bundle results
+        last = bundles[index][-1]
+        scores = compute_scores(bundles[index])
+        print(f"Bundle: {last['bundle']}\n",
+              f" Misclassification Rate: {last['error']}\n",
+              f" Entropy Rate: {last['entropy']}\n",
+              f" F1 Score (Modified): {scores[0]}\n",
+              f" F2 Score (Not Modified): {scores[1]}\n")
+    
+    # Generate random dataset seeds, using bundles as building blocks
+    seeds = generate_seeds(bundles, sets)
+
+    # Calculate mean result rates from dataset of seed values
+    datasets = compute_datasets(bundles, seeds)
+    for count, dataset in enumerate(datasets):
+        print(f"Dataset: {count}  -  {dataset['seed']}\n",
+              f" Misclassification Rate: {dataset['error']}\n",
+              f" Entropy Rate: {dataset['entropy']}\n",
+              f" F1 Score (Modified): {dataset['f1']}\n",
+              f" F2 Score (Not Modified): {dataset['f2']}\n")
     
     # Save updated training data to new .csv file
-    keys = data_train[0].keys()
+    keys = bundles[0][0].keys()
     with open(os.path.join(data_path, 'model.csv'), 'w') as file:
         writer = csv.DictWriter(file, fieldnames=keys)
         writer.writeheader()
-        writer.writerows(data_train)
+        for bundle in bundles:
+            writer.writerows(bundle)
+    
+    # Save dataset results to new .csv file
+    keys = datasets[0].keys()
+    with open(os.path.join(data_path, 'output.csv'), 'w') as file:
+        writer = csv.DictWriter(file, fieldnames=keys)
+        writer.writeheader()
+        writer.writerows(datasets)
     print('Finished training model...')
 
 
 # DEBUG
 if __name__ == '__main__':
-    learn(50)
+    learn(7, 20, 50)
