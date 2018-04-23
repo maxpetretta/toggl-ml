@@ -17,7 +17,6 @@ from analyse import analyse
 #   size_validate:  Percentage size of the validation data set (0.0 - 1.0)
 #   days:           Number of days to split data training sets into
 #   sets:           Number of datasets to generate and train on
-#   skip:           Number of lines to skip before printing another outcome
 #   bundle:         Plot the given bundle value
 
 #   NOTE: The three size variables must sum to 1.0, else an error is thrown
@@ -25,7 +24,7 @@ from analyse import analyse
 
 # Run Naive Bayes classifier on time entry data from Toggl account
 def main(since, until, size_train, size_test, size_validate,
-         days, sets, skip, bundle):
+         days, sets, bundle):
     print('\nMAIN:')
 
     # Export all data from Toggl account
@@ -35,7 +34,7 @@ def main(since, until, size_train, size_test, size_validate,
     preprocess(size_train, size_test, size_validate)
     
     # Run Bayesian classification on the test data set, printing outcomes
-    learn(days, sets, skip)
+    learn(days, sets)
 
     # Show visual results of Bayes model of training data
     analyse(bundle)
@@ -45,4 +44,4 @@ def main(since, until, size_train, size_test, size_validate,
 
 # DEBUG
 if __name__ == '__main__':
-    main('2018-01-01', '2018-12-31', 0.6, 0.2, 0.2, 7, 200, 50, 0)
+    main('2018-01-01', '2018-12-31', 0.6, 0.2, 0.2, 7, 100, 0)

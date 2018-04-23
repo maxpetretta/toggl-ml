@@ -22,37 +22,50 @@ def open_csv(file):
     return data
 
 
-# Plot the ending totals of classification values
-def plot_confusion(data):
-    values = [0, 0, 0, 0]
-    labels = ['True Positive', 'True Negative',
-              'False Positive', 'False Negative']
-    colors = ['green', 'limegreen', 'red', 'darkorange']
+# Calculate the F1 and F2 scores for the given entry values
+def compute_scores(bundle):
+    scores = [0, 0]
+    values = {'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0}
 
-    for entry in data:
+    for entry in bundle:
         modified = entry['modified']
         probability = float(entry['probability'])
 
         if modified == 'True' and probability >= 0.5:
-            values[0] += 1
+            values['tp'] += 1
         elif modified == 'False' and probability < 0.5:
-            values[1] += 1
+            values['tn'] += 1
         elif modified == 'False' and probability >= 0.5:
-            values[2] += 1
+            values['fp'] += 1
         elif modified == 'True' and probability < 0.5:
-            values[3] += 1
+            values['fn'] += 1
     
     # Calculate F1 score, for modified values
-    precision = 1 / (1 + (values[2]/values[0]))
-    recall = 1 / (1 + (values[3]/values[0]))
+    tp, tn, fp, fn = values['tp'], values['tn'], values['fp'], values['fn']
+    precision = 1 / (1 + (fp/(tp if tp > 0 else 1)))
+    recall = 1 / (1 + (fn/(tp if tp > 0 else 1)))
     f1_score = 2 / ((1/precision) + (1/recall))
-    print('Overall F1 Score (Modified): ', f1_score)
+    scores[0] = f1_score
 
     # Calculate F2 score, for non-modified values
-    precision = 1 / (1 + (values[3]/values[1]))
-    recall = 1 / (1 + (values[2]/values[1]))
+    precision = 1 / (1 + (fn/(tn if tn > 0 else 1)))
+    recall = 1 / (1 + (fp/(tn if tn > 0 else 1)))
     f2_score = 2 / ((1/precision) + (1/recall))
-    print('Overall F2 Score (Not Modified): ', f2_score)
+    scores[1] = f2_score
+
+    return ([tp, tn, fp, fn], scores)
+
+
+# Plot the ending totals of classification values
+def plot_confusion(data):
+    labels = ['True Positive', 'True Negative',
+              'False Positive', 'False Negative']
+    colors = ['green', 'limegreen', 'red', 'darkorange']
+
+    values, scores = compute_scores(data)
+    
+    print('Overall F1 Score (Modified): ', scores[0])
+    print('Overall F2 Score (Not Modified): ', scores[1])
 
     plt.pie(values, labels=labels, colors=colors, autopct=lambda p:
             round(p/100 * len(data)))
@@ -140,6 +153,22 @@ def plot_overall_entropy(data):
     plt.xlabel('Entropy Rate')
     plt.ylabel('Frequency')
     plt.grid(linestyle='--')
+
+
+# Plot the progression of modified entry totals
+def plot_modified(data):
+    value = 0
+    x, y = [], []
+    for index, entry in enumerate(data, 1):
+        value += (1 if entry['modified'] == 'True' else -1)
+        x.append(index)
+        y.append(value)
+    
+    plt.scatter(x, y)
+    plt.title('Modified Entry Totals')
+    plt.xlabel('Entry Number')
+    plt.ylabel('Modified Value Sum (-1/+1)')
+    plt.grid(linestyle='--')
     
 
 # Visually examine data after being processed through model
@@ -199,6 +228,13 @@ def analyse(b):
     plot_overall_entropy(output)
     
     print('Showing overall distribution results')
+    plt.show()
+
+    # Show breakdown of modified entries over time
+    plt.figure(num=4, figsize=(6, 4))
+    plot_modified(model)
+
+    print('Showing breakdown of modified entries')
     plt.show()
 
 

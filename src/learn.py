@@ -276,21 +276,22 @@ def compute_scores(bundle):
             values['fn'] += 1
     
     # Calculate F1 score, for modified values
-    precision = 1 / (1 + (values['fp']/values['tp']))
-    recall = 1 / (1 + (values['fn']/values['tp']))
+    tp, tn, fp, fn = values['tp'], values['tn'], values['fp'], values['fn']
+    precision = 1 / (1 + (fp/(tp if tp > 0 else 1)))
+    recall = 1 / (1 + (fn/(tp if tp > 0 else 1)))
     f1_score = 2 / ((1/precision) + (1/recall))
     scores[0] = f1_score
 
     # Calculate F2 score, for non-modified values
-    precision = 1 / (1 + (values['fn']/values['tn']))
-    recall = 1 / (1 + (values['fp']/values['tn']))
+    precision = 1 / (1 + (fn/(tn if tn > 0 else 1)))
+    recall = 1 / (1 + (fp/(tn if tn > 0 else 1)))
     f2_score = 2 / ((1/precision) + (1/recall))
     scores[1] = f2_score
     return scores
 
 
 # Randomly select seeds for testing datasets from provided bundle values
-def generate_seeds(bundles, sets):
+def compute_seeds(bundles, sets):
     seeds = []
     for _ in range(sets):
         length = len(bundles)
@@ -331,7 +332,7 @@ def compute_datasets(bundles, seeds):
 
 
 # Examine time entries, building live Bayesian model
-def learn(days, sets, skip):
+def learn(days, sets):
     print('\nBAYES:')
 
     # Open training data set
@@ -383,7 +384,7 @@ def learn(days, sets, skip):
               f" F2 Score (Not Modified): {scores[1]}\n")
     
     # Generate random dataset seeds, using bundles as building blocks
-    seeds = generate_seeds(bundles, sets)
+    seeds = compute_seeds(bundles, sets)
 
     # Calculate mean result rates from dataset of seed values
     datasets = compute_datasets(bundles, seeds)
@@ -413,4 +414,4 @@ def learn(days, sets, skip):
 
 # DEBUG
 if __name__ == '__main__':
-    learn(7, 20, 50)
+    learn(7, 100)
