@@ -134,6 +134,8 @@ def plot_overall_error(data):
     errors = []
     for entry in data:
         errors.append(float(entry['error']))
+    mean_error = sum(errors) / len(errors)
+    print(f"Mean Error Rate: {mean_error}")
       
     plt.hist(errors)
     plt.title('Overall Error Distribution')
@@ -147,6 +149,8 @@ def plot_overall_entropy(data):
     entropies = []
     for entry in data:
         entropies.append(float(entry['entropy']))
+    mean_entropy = sum(entropies) / len(entropies)
+    print(f"Mean Entropy Rate: {mean_entropy}")
       
     plt.hist(entropies)
     plt.title('Overall Entropy Distribution')
