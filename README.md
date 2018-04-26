@@ -1,5 +1,5 @@
 # Toggl-ML
-A machine learning project for indentifying modified time entries from a Toggl account, written in Python
+A machine learning project for identifying modified time entries from a Toggl account, written in Python.
 
 ## Installation
 To compile and run toggl-ml, you will need the following dependencies:
