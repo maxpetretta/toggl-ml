@@ -12,7 +12,9 @@ Homebrew: `brew install pipenv`
 Python v3.0+: `pip install pipenv`  
 
 Once Pipenv is installed, navigate to the project directory and run:  
+
 `pipenv install`  
+
 This will install all of the Python dependencies found in `Pipfile`, and create a virtualenv for the project to run in.
 
 ## Executing
@@ -26,6 +28,7 @@ python src/main.py
 At this point, the program will collect all data from the provided Toggl account and apply a learning model to the entries.  Output is printed to the console, and several graphs will be shown in separate windows.
 
 To see the graphs again without repeating the export process, simply run:  
+
 `python src/analyse.py`
 
 ---
