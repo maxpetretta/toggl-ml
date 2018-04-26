@@ -28,7 +28,7 @@ def main(since, until, size_train, size_test, size_validate,
     print('\nMAIN:')
 
     # Export all data from Toggl account
-    export(since, until)
+    # export(since, until)
 
     # Partition data into three separate sets
     preprocess(size_train, size_test, size_validate)
