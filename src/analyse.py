@@ -1,7 +1,7 @@
 # Plot various graphs and distributions of model training data
 import os
-import csv
 import dateutil.parser
+import helper as h
 
 import matplotlib
 matplotlib.use('TkAgg')
@@ -13,56 +13,13 @@ project_path = os.getcwd()
 data_path = os.path.join(project_path, 'data/')
 
 
-# Convert data .csv file to list of dictionaries structure
-def open_csv(file):
-    data = []
-    reader = csv.DictReader(file)
-    for row in reader:
-        data.append(row)
-    return data
-
-
-# Calculate the F1 and F2 scores for the given entry values
-def compute_scores(bundle):
-    scores = [0, 0]
-    values = {'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0}
-
-    for entry in bundle:
-        modified = entry['modified']
-        probability = float(entry['probability'])
-
-        if modified == 'True' and probability >= 0.5:
-            values['tp'] += 1
-        elif modified == 'False' and probability < 0.5:
-            values['tn'] += 1
-        elif modified == 'False' and probability >= 0.5:
-            values['fp'] += 1
-        elif modified == 'True' and probability < 0.5:
-            values['fn'] += 1
-    
-    # Calculate F1 score, for modified values
-    tp, tn, fp, fn = values['tp'], values['tn'], values['fp'], values['fn']
-    precision = 1 / (1 + (fp/(tp if tp > 0 else 1)))
-    recall = 1 / (1 + (fn/(tp if tp > 0 else 1)))
-    f1_score = 2 / ((1/precision) + (1/recall))
-    scores[0] = f1_score
-
-    # Calculate F2 score, for non-modified values
-    precision = 1 / (1 + (fn/(tn if tn > 0 else 1)))
-    recall = 1 / (1 + (fp/(tn if tn > 0 else 1)))
-    f2_score = 2 / ((1/precision) + (1/recall))
-    scores[1] = f2_score
-
-    return ([tp, tn, fp, fn], scores)
-
-
 # Plot the ending totals of classification values
 def plot_confusion(data):
     labels = ['True Positive', 'True Negative',
               'False Positive', 'False Negative']
     colors = ['green', 'limegreen', 'red', 'darkorange']
 
-    values, scores = compute_scores(data)
+    values, scores = h.compute_scores(data)
     
     print('Overall F1 Score (Modified): ', scores[0])
     print('Overall F2 Score (Not Modified): ', scores[1])
@@ -130,7 +87,7 @@ def plot_duration(data):
 
 
 # Plot the histogram of overall dataset errors
-def plot_overall_error(data):
+def plot_error_overall(data):
     errors = []
     for entry in data:
         errors.append(float(entry['error']))
@@ -145,7 +102,7 @@ def plot_overall_error(data):
 
 
 # Plot the histogram of overall dataset entropy rate
-def plot_overall_entropy(data):
+def plot_entropy_overall(data):
     entropies = []
     for entry in data:
         entropies.append(float(entry['entropy']))
@@ -182,8 +139,8 @@ def analyse(b):
     # Open processed model and output data
     with open(os.path.join(data_path, 'model.csv')) as model_file, \
          open(os.path.join(data_path, 'output.csv')) as output_file:
-        model = open_csv(model_file)
-        output = open_csv(output_file)
+        model = h.open_csv(model_file)
+        output = h.open_csv(output_file)
     
     # Show confusion matrix values in pie chart
     plt.figure(num=1, figsize=(14, 4))
@@ -225,11 +182,11 @@ def analyse(b):
     # Show distribution of dataset misclassification rates
     plt.figure(num=3, figsize=(10, 4))
     plt.subplot(1, 2, 1)
-    plot_overall_error(output)
+    plot_error_overall(output)
 
     # Show distribution of dataset entropy rates
     plt.subplot(1, 2, 2)
-    plot_overall_entropy(output)
+    plot_entropy_overall(output)
     
     print('Showing overall distribution results')
     plt.show()

@@ -23,8 +23,8 @@ def split(data, size_train, size_test, size_validate):
     split_train = round(length * size_train)
     split_test = round(length * size_test)
 
-    print(f'Spliting data into: Train ({size_train}), Test ({size_test}), &',
-          f'Validate ({size_validate})')
+    print(f"Spliting data into: Train ({size_train}), Test ({size_test}), &",
+          f"Validate ({size_validate})")
     train = data[:split_train]
     test = data[split_train:split_train + split_test]
     validate = data[split_train + split_test:]
