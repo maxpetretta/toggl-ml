@@ -31,6 +31,9 @@ To see the graphs again without repeating the export process, simply run:
 
 `python src/analyse.py`
 
+## Versions
+There are two primary versions of this project.  The final version, v1.0, has the model learning on random datasets creating by spliting the entries into separate, weekly bundles.  A previous version, v0.3, has the model learning on a shuffled set of all data entries.  These versions can be compared by checking out their respective tags.
+
 ---
 
 _Developed by Max Petretta_
